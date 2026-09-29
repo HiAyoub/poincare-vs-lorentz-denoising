@@ -1,0 +1,5 @@
+# P: hyperbolic encoder on the Poincare ball (hypll), Euclidean decoder
+inherit: base.yaml
+name: poincare
+model:
+  encoder: poincare

@@ -1,0 +1,32 @@
+# Shared settings for EVERY experiment. Experiment configs only override what differs.
+name: base
+output_dir: results
+
+data:
+  root: null            # auto-detects the Kaggle path of andrewmvd/retinal-disease-classification
+  image_size: 384       # images resized to 384x384
+  patch_size: 256       # random 256x256 crops for training / validation
+  val_seed: 1           # fixed validation crops + noise (same as the internship notebooks)
+  num_workers: 2
+
+model:
+  encoder: euclidean    # euclidean | poincare | lorentz
+  base_channels: 32     # widths 32-64-128-256-512
+  depth: 4
+  curvature_init: 0.5   # raw value; actual c = softplus(0.5) ~ 0.974
+  trainable_curvature: true
+
+train:
+  epochs: 30
+  batch_size: 4         # same for ALL models (hyperbolic encoders need 4 on a T4)
+  lr: 2.0e-4
+  weight_decay: 1.0e-4
+  curvature_weight_decay: 0.0
+  warmup_epochs: 1
+  grad_clip: 1.0
+  # fp32 everywhere (no AMP) so numerical precision is identical across models
+
+eval:
+  crop: none            # full 384x384 test images
+  noise_seed: 7         # fixed noise realisation per test image
+  batch_size: 2

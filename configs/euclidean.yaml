@@ -1,0 +1,5 @@
+# E: Euclidean U-Net baseline
+inherit: base.yaml
+name: euclidean
+model:
+  encoder: euclidean

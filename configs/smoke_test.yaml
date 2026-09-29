@@ -1,0 +1,7 @@
+# 1 epoch of the Lorentz model (the least tested code path), only to check the pipeline end to end
+inherit: base.yaml
+name: smoke_test
+model:
+  encoder: lorentz
+train:
+  epochs: 1

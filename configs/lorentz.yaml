@@ -1,0 +1,5 @@
+# L: same encoder, same hypll layers, Lorentz model instead of the Poincare ball
+inherit: base.yaml
+name: lorentz
+model:
+  encoder: lorentz

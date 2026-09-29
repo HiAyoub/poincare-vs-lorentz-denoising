@@ -1,0 +1,11 @@
+torch>=2.1
+torchvision
+torchmetrics>=1.4
+lpips==0.1.4
+pyyaml
+numpy
+pandas
+scipy
+pillow
+matplotlib
+pytest

@@ -1,0 +1,15 @@
+__pycache__/
+.env/
+*.egg-info/
+.pytest_cache
+/data
+/tests/data
+.vscode
+build
+/dist
+data
+docs/build
+docs/source/_autosummary
+docs/source/tutorials
+tests/data
+
