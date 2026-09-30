@@ -37,7 +37,16 @@ def find_data_root(explicit: Optional[str] = None) -> Path:
         return Path(explicit)
     root = next((p for p in DATA_ROOT_CANDIDATES if p.exists()), None)
     if root is None:
-        raise FileNotFoundError(f"RFMiD not found in {DATA_ROOT_CANDIDATES}")
+        # Kaggle mount paths vary: look for the folder that contains "Training_Set"
+        for base in (Path("/kaggle/input"), Path("./data")):
+            if base.exists():
+                hit = next(iter(sorted(base.glob("**/Training_Set"))), None)
+                if hit is not None:
+                    return hit.parent
+        raise FileNotFoundError(
+            "RFMiD not found. On Kaggle: Add Input -> 'andrewmvd/retinal-disease-classification', "
+            "or pass --set data.root=/path/to/folder_containing_Training_Set"
+        )
     return root
 
 
