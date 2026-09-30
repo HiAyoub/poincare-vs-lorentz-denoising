@@ -30,3 +30,4 @@ eval:
   crop: none            # full 384x384 test images
   noise_seed: 7         # fixed noise realisation per test image
   batch_size: 2
+  fov_threshold: 0.0392 # 10/255: pixels darker than this in the clean image = background, not fundus
