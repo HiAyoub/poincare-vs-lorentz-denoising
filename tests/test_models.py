@@ -18,7 +18,7 @@ def _cfg(encoder):
 @pytest.mark.parametrize("encoder", ["euclidean", "poincare", "lorentz"])
 def test_forward_shape_and_identity_at_init(encoder):
     model = build_model(_cfg(encoder)).eval()
-    x = torch.rand(2, 3, 32, 32)
+    x = torch.rand(2, 3, 64, 64)
     with torch.no_grad():
         y = model(x)
     assert y.shape == x.shape and torch.isfinite(y).all()
@@ -41,7 +41,7 @@ def test_poincare_and_lorentz_compute_the_same_function():
         torch.nn.init.normal_(p.head.weight, std=0.1)  # non-trivial head so the encoder matters
         l = build_model(_cfg("lorentz")).eval()
         l.load_state_dict(copy.deepcopy(p.state_dict()))
-        x = torch.rand(2, 3, 32, 32)
+        x = torch.rand(2, 3, 64, 64)
         with torch.no_grad():
             fp, fl = p.encoder(x), l.encoder(x)
             for a, b in zip(fp, fl):
