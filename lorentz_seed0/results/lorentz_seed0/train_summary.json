@@ -1,8 +1,0 @@
-{
-  "name": "lorentz",
-  "seed": 0,
-  "best_val_psnr": 39.34416580200195,
-  "final_curvature": 0.6828773617744446,
-  "minutes": 122.16209790706634,
-  "params": 7238884
-}
