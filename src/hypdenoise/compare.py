@@ -36,7 +36,8 @@ def bootstrap_ci(x: np.ndarray, n: int = 10_000, seed: int = 0) -> tuple[float, 
 
 def compare(results: Path, reference: str) -> pd.DataFrame:
     df = load_all(results)
-    per_img = df.groupby(["model", "level", "image"])[["psnr", "ssim", "lpips"]].mean().reset_index()
+    metrics = [m for m in ["psnr", "ssim", "lpips", "psnr_fov", "ssim_fov", "lpips_fov"] if m in df.columns]
+    per_img = df.groupby(["model", "level", "image"])[metrics].mean().reset_index()
     n_seeds = df.groupby("model")["seed"].nunique().to_dict()
     rows = []
     for level in ["light", "medium", "heavy"]:
@@ -46,7 +47,7 @@ def compare(results: Path, reference: str) -> pd.DataFrame:
             cur = lv[lv.model == model].set_index("image")
             common = cur.index.intersection(ref.index)
             row = {"level": level, "model": model, "n_seeds": n_seeds[model]}
-            for m in ["psnr", "ssim", "lpips"]:
+            for m in metrics:
                 x = cur.loc[common, m].to_numpy()
                 row[m] = x.mean()
                 row[f"{m}_ci_low"], row[f"{m}_ci_high"] = bootstrap_ci(x)
