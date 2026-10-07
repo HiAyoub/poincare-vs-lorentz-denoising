@@ -1,0 +1,5 @@
+# poincare encoder trained and tested on FIVES (second dataset, in-domain)
+inherit: fives_base.yaml
+name: fives_poincare
+model:
+  encoder: poincare

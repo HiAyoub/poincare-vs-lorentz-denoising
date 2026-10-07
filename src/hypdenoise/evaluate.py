@@ -1,13 +1,17 @@
 """Evaluate a trained checkpoint with THE test protocol and save per-image metrics.
 
     python -m hypdenoise.evaluate --run results/lorentz_seed0
+    # cross-dataset: RFMiD-trained checkpoint, FIVES test set -> test_per_image_fives.csv
+    python -m hypdenoise.evaluate --run results/lorentz_seed0 --data-config configs/eval_fives.yaml
 
 Protocol (identical for every model, see configs/base.yaml -> eval):
-  * official RFMiD test split (640 images), resized to 384x384, full image (no crop)
+  * official test split of the dataset (RFMiD: 640 images at 384x384; FIVES: 200 at 512x512),
+    full image (no crop)
   * each noise level (light / medium / heavy) evaluated separately
   * noise realisation fixed per image (noise_seed) -> every model sees the same noisy inputs
   * per-image PSNR, SSIM and LPIPS (AlexNet) saved to test_per_image.csv, on the full
     image and on the field of view only (*_fov: fundus disc, black background excluded)
+  * FIVES only: also on the expert vessel annotation (*_vessel), where fine structure lives
 """
 
 from __future__ import annotations
@@ -21,12 +25,13 @@ import torch
 from torch.utils.data import DataLoader
 from torchmetrics.functional.image import peak_signal_noise_ratio, structural_similarity_index_measure
 
-from .data import NOISE_LEVELS, find_data_root, make_eval_dataset, official_splits
+from .data import NOISE_LEVELS, get_splits, load_vessel_mask, make_eval_dataset
 from .models import build_model
-from .utils import save_json
+from .utils import _deep_update, load_config, save_json
 
 
 METRICS = ("psnr", "ssim", "lpips", "psnr_noisy", "psnr_fov", "ssim_fov", "lpips_fov", "psnr_noisy_fov")
+VESSEL_METRICS = ("psnr_vessel", "ssim_vessel", "lpips_vessel", "psnr_noisy_vessel")
 
 
 def _masked_mean(x: torch.Tensor, mask: torch.Tensor) -> float:
@@ -40,10 +45,18 @@ def _masked_psnr(x: torch.Tensor, y: torch.Tensor, mask: torch.Tensor) -> float:
 
 
 @torch.no_grad()
-def evaluate_run(run: Path, which: str = "best.pt", device=None) -> dict:
+def evaluate_run(run: Path, which: str = "best.pt", device=None, data_config: str | None = None,
+                 tag: str | None = None) -> dict:
+    """data_config: YAML whose `data` / `eval` sections replace the training ones (cross-dataset
+    evaluation). tag: suffix of the output files (default: dataset name when data_config is set)."""
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(run / which, map_location=device, weights_only=False)
     cfg = ckpt["config"]
+    if data_config:
+        over = load_config(data_config)
+        cfg = _deep_update(cfg, {k: over[k] for k in ("data", "eval") if k in over})
+        tag = tag or cfg["data"].get("dataset", "cross")
+    suffix = f"_{tag}" if tag else ""
     model = build_model(cfg).to(device)
     model.load_state_dict(ckpt["model_state"])
     model.eval()
@@ -51,7 +64,10 @@ def evaluate_run(run: Path, which: str = "best.pt", device=None) -> dict:
     lp_map = lpips.LPIPS(net="alex", spatial=True, verbose=False).to(device)
     thr = cfg["eval"].get("fov_threshold", 10 / 255)
 
-    test_paths = official_splits(find_data_root(cfg["data"].get("root")))["test"]
+    splits = get_splits(cfg)
+    test_paths, masks = splits["test"], splits.get("masks", {})
+    metrics = METRICS + (VESSEL_METRICS if masks else ())
+    size = cfg["data"]["image_size"]
     rows = []
     for level in NOISE_LEVELS:
         ds = make_eval_dataset(cfg, test_paths, level)
@@ -67,8 +83,9 @@ def evaluate_run(run: Path, which: str = "best.pt", device=None) -> dict:
                 _, ssim_map = structural_similarity_index_measure(
                     d, c, data_range=1.0, return_full_image=True)
                 lp_m = lp_map(d * 2 - 1, c * 2 - 1)
-                rows.append({
-                    "image": test_paths[int(idx[j])].name, "level": level,
+                path = test_paths[int(idx[j])]
+                row = {
+                    "image": path.name, "level": level,
                     "psnr": peak_signal_noise_ratio(d, c, data_range=1.0).item(),
                     "ssim": structural_similarity_index_measure(d, c, data_range=1.0).item(),
                     "lpips": lp(d * 2 - 1, c * 2 - 1).item(),
@@ -78,18 +95,29 @@ def evaluate_run(run: Path, which: str = "best.pt", device=None) -> dict:
                     "lpips_fov": _masked_mean(lp_m, fov),
                     "psnr_noisy_fov": _masked_psnr(n, c, fov),
                     "fov_fraction": fov.mean().item(),
-                })
+                }
+                if masks:
+                    v = load_vessel_mask(masks[path], size).to(device)
+                    row.update({
+                        "psnr_vessel": _masked_psnr(d, c, v),
+                        "ssim_vessel": _masked_mean(ssim_map.mean(dim=1, keepdim=True), v),
+                        "lpips_vessel": _masked_mean(lp_m, v),
+                        "psnr_noisy_vessel": _masked_psnr(n, c, v),
+                        "vessel_fraction": v.mean().item(),
+                    })
+                rows.append(row)
 
-    with open(run / "test_per_image.csv", "w", newline="") as f:
+    with open(run / f"test_per_image{suffix}.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0]))
         w.writeheader()
         w.writerows(rows)
 
-    summary = {"run": run.name, "checkpoint": which, "epoch": ckpt["epoch"], "curvature": ckpt.get("curvature")}
+    summary = {"run": run.name, "checkpoint": which, "epoch": ckpt["epoch"], "curvature": ckpt.get("curvature"),
+               "test_dataset": cfg["data"].get("dataset", "rfmid"), "n_images": len(test_paths)}
     for level in NOISE_LEVELS:
         r = [x for x in rows if x["level"] == level]
-        summary[level] = {m: sum(x[m] for x in r) / len(r) for m in METRICS}
-    save_json(summary, run / "test_summary.json")
+        summary[level] = {m: sum(x[m] for x in r) / len(r) for m in metrics}
+    save_json(summary, run / f"test_summary{suffix}.json")
     print(summary)
     return summary
 
@@ -98,8 +126,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True, help="run directory, e.g. results/lorentz_seed0")
     ap.add_argument("--checkpoint", default="best.pt")
+    ap.add_argument("--data-config", default=None, help="evaluate on another dataset, e.g. configs/eval_fives.yaml")
+    ap.add_argument("--tag", default=None, help="output suffix: test_per_image_<tag>.csv")
     a = ap.parse_args()
-    evaluate_run(Path(a.run), a.checkpoint)
+    evaluate_run(Path(a.run), a.checkpoint, data_config=a.data_config, tag=a.tag)
 
 
 if __name__ == "__main__":

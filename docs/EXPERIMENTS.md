@@ -57,3 +57,18 @@ single seeds; batch-size / AMP / optimiser confounds.
 |---|---|
 | 2026-09-28 | Audit of internship notebooks; Lorentz manifold written for hypll (59 tests pass on Kaggle) |
 | 2026-09-29 | Repo created; protocol fixed |
+
+## Second dataset: FIVES
+
+FIVES (Jin et al., *Sci. Data* 2022, doi:10.6084/m9.figshare.19688169): 800 fundus images (2048×2048,
+AMD / DR / glaucoma / normal) with pixel-level expert vessel annotations. Official split 600 / 200;
+60 training images (15 per class) are held out for validation. Images resized to 512×512.
+
+1. **Cross-dataset** (no retraining): RFMiD-trained checkpoints on the FIVES test set,
+   `python -m hypdenoise.evaluate --run results/<run> --data-config configs/eval_fives.yaml`
+   → `test_per_image_fives.csv`; `python -m hypdenoise.compare --tag fives`.
+2. **In-domain**: `configs/fives_{euclidean,poincare,lorentz}.yaml`, same protocol as RFMiD
+   (3 seeds), `python -m hypdenoise.compare --reference fives_euclidean`.
+
+On FIVES every evaluation also reports `*_vessel` metrics, computed only on annotated vessel pixels
+(mask resized bilinearly, threshold 0.25). Kaggle: `notebooks/kaggle_fives.ipynb`.

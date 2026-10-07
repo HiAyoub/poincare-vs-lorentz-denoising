@@ -1,0 +1,12 @@
+# Cross-dataset evaluation: RFMiD-trained checkpoints tested on the FIVES test set (200 images).
+#   python -m hypdenoise.evaluate --run results/lorentz_seed0 --data-config configs/eval_fives.yaml
+# Only the `data` and `eval` sections replace the checkpoint's config; same noise protocol.
+data:
+  dataset: fives
+  root: null
+  image_size: 512
+eval:
+  crop: none
+  noise_seed: 7
+  batch_size: 2
+  fov_threshold: 0.0392

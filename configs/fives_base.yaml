@@ -1,0 +1,11 @@
+# FIVES (Jin et al., Sci. Data 2022): 800 fundus images 2048x2048, expert vessel annotations.
+# Official split 600 train / 200 test; 60 train images held out for validation (15 per class).
+# Everything else (model, optimizer, noise, epochs) is inherited unchanged from base.yaml.
+inherit: base.yaml
+data:
+  dataset: fives
+  root: null           # auto-detects the folder containing train/Original and test/Original
+  image_size: 512      # 2048 -> 512 (keeps vessels visible; divisible by 16 for the 4 poolings)
+  patch_size: 256
+  train_repeats: 2     # 540 images x 2 crops per epoch (RFMiD: 1920 x 1)
+  cache: true          # decode the 2048px PNGs once

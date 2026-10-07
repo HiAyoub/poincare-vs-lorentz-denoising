@@ -17,7 +17,7 @@ import torch.nn as nn
 from hypll.optim import RiemannianAdam
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 
-from .data import find_data_root, make_train_val_loaders, official_splits
+from .data import get_splits, make_train_val_loaders
 from .models import build_model, count_params
 from .utils import load_config, run_dir, save_json, seed_everything
 
@@ -62,7 +62,7 @@ def train(cfg: dict, seed: int) -> dict:
     out = run_dir(cfg, seed)
     save_json({**cfg, "seed": seed}, out / "config.json")
 
-    splits = official_splits(find_data_root(cfg["data"].get("root")))
+    splits = get_splits(cfg)
     train_loader, val_loader = make_train_val_loaders(cfg, splits, seed)
 
     model = build_model(cfg).to(device)

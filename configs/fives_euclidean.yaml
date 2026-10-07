@@ -1,0 +1,5 @@
+# euclidean encoder trained and tested on FIVES (second dataset, in-domain)
+inherit: fives_base.yaml
+name: fives_euclidean
+model:
+  encoder: euclidean
